@@ -58,8 +58,13 @@ def simple_engine(board):
 
 def main():
     board = chess.Board()
+    last_move_san = None
+    last_move_uci = None
 
     while not board.is_game_over():
+        if last_move_san and last_move_uci:
+            print(f"\n\nLast move: {last_move_san} ({last_move_uci})")
+
         print(board.unicode(invert_color=True, borders=True))
         legal_moves_formatted = [f"{board.san(move)} ({move.uci()})" for move in board.legal_moves]
         print("Legal moves: ", ', '.join(legal_moves_formatted))
@@ -69,6 +74,8 @@ def main():
         else:
             move = chess.Move.from_uci(input("Enter your move: "))
 
+        last_move_san = board.san(move)
+        last_move_uci = move.uci()
         board.push(move)
 
     print(board)
