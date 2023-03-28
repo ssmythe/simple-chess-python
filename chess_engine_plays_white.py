@@ -1,60 +1,44 @@
 #!/usr/bin/env python
 
 import chess
-import chess.engine
-import random
 
 def evaluate_position(board):
-    # Space: number of possible moves
-    legal_moves = list(board.legal_moves)
-    space = len(legal_moves)
-
-    # Time: number of moves played
-    time = board.fullmove_number
-
-    # Force: material balance
-    force = sum([piece_value(board.piece_at(square)) for square in chess.SQUARES])
-
-    return space - time + force
-
-def piece_value(piece):
-    if piece is None:
-        return 0
-
     piece_values = {
         chess.PAWN: 1,
         chess.KNIGHT: 3,
         chess.BISHOP: 3,
         chess.ROOK: 5,
         chess.QUEEN: 9,
-        chess.KING: 0
+        chess.KING: 0,
     }
 
-    value = piece_values[piece.piece_type]
+    score = 0
+    for piece_type in piece_values.keys():
+        score += len(board.pieces(piece_type, chess.WHITE)) * piece_values[piece_type]
+        score -= len(board.pieces(piece_type, chess.BLACK)) * piece_values[piece_type]
 
-    # Negate the value if the piece belongs to the black player
-    if piece.color == chess.BLACK:
-        value = -value
-
-    return value
+    return score
 
 def simple_engine(board):
-    legal_moves = list(board.legal_moves)
-    random.shuffle(legal_moves)
-
     best_move = None
-    best_eval = float('-inf')
+    best_evaluation = float('-inf')
 
-    for move in legal_moves:
+    for move in board.legal_moves:
         board.push(move)
-        eval = evaluate_position(board)
+        evaluation = evaluate_position(board)
         board.pop()
 
-        if eval > best_eval:
-            best_eval = eval
+        if evaluation > best_evaluation:
+            best_evaluation = evaluation
             best_move = move
 
     return best_move
+
+def evaluate_move(board, move):
+    board.push(move)
+    score = evaluate_position(board)
+    board.pop()
+    return score
 
 def main():
     board = chess.Board()
@@ -63,16 +47,33 @@ def main():
 
     while not board.is_game_over():
         if last_move_san and last_move_uci:
-            print(f"\n\nLast move: {last_move_san} ({last_move_uci})")
+            print(f"Last move: {last_move_san} ({last_move_uci})")
 
-        print(board.unicode(invert_color=True, borders=True))
-        legal_moves_formatted = [f"{board.san(move)} ({move.uci()})" for move in board.legal_moves]
+        print(f"Move number: {board.fullmove_number}")
+
+        legal_moves_evaluated = [
+            (evaluate_move(board, move), board.san(move), move.uci())
+            for move in board.legal_moves
+        ]
+        legal_moves_sorted = sorted(legal_moves_evaluated, key=lambda x: x[0], reverse=True)
+        legal_moves_formatted = [f"{eval_score} {san} ({uci})" for eval_score, san, uci in legal_moves_sorted]
+
         print("Legal moves: ", ', '.join(legal_moves_formatted))
+
         print(board)
         if board.turn == chess.WHITE:
             move = simple_engine(board)
         else:
-            move = chess.Move.from_uci(input("Enter your move: "))
+            while True:
+                try:
+                    move_uci = input("Enter your move: ")
+                    move = chess.Move.from_uci(move_uci)
+                    if move in board.legal_moves:
+                        break
+                    else:
+                        print("Invalid move. Please try again.")
+                except ValueError:
+                    print("Invalid input format. Please try again.")
 
         last_move_san = board.san(move)
         last_move_uci = move.uci()
